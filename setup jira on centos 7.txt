@@ -1,0 +1,173 @@
+ 
+
+Up until now I always have used Mysql server for Jira instances. PostgreSQL is Atlassian preferred database for Jira and other products. So I will go through installing steps for this configuration. I already have a fresh minimal Centos7 installation. 
+
+Atlassian has a guide for this but it is generic covering all possible combinations and for this specific installation one need to jump between various pages. This post will have all you need to know on how to install Atlassian Jira on Centos7 in one place. 
+
+All the details and screenshots are correct for below: 
+
+OS: Centos 7.5[Text Wrapping Break]Jira Software: atlassian-jira-software-7.11.1-x64[Text Wrapping Break]Database: PostgreSQL-9.6 
+
+Preparation 
+
+Before start, you need to decide where to download your resources. I usually have my resources in one place. Create a folder for it if you haven’t got one. 
+
+sudo yum update 
+
+sudo yum install wget 
+
+Open firewall ports 
+
+Centos 7 now comes with?firewalld?pre-installed and activated in some templates by default. You need to open the needed ports to get access to the server through web browser. 
+
+You can add the ports needed to the zones you want (public here) 
+
+$ sudo firewall-cmd --zone=public --add-port=8080/tcp --permanent 
+
+Now reload the firewall for changes to take effect. 
+
+$ sudo firewall-cmd --reload 
+
+ 
+
+ 
+
+Install database server 
+
+Atlassian’s recommended database engine for Jira is PostgreSQL. It is also easiest option to install because it doesn’t need extra steps to download Java connector separately. 
+
+The version? that Centos7 repository includes at the moment is v9.2. It not supported by Atlassian products any more. So will need to use community repository the get the latest version of v9.6. 
+
+$ sudo yum install https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-centos96-9.6-3.noarch.rpm 
+
+$ sudo yum install postgresql96-server 
+
+After installing the packages, you need to initialise and configure it. 
+
+Initialise 
+
+$ sudo /usr/pgsql-9.6/bin/postgresql96-setup initdb 
+
+Initializing database ... OK 
+
+Control service 
+
+$ sudo systemctl enable postgresql-9.6 
+
+$ sudo systemctl start postgresql-9.6 
+
+create and set-up database 
+
+$ sudo -u postgres  
+
+$ psql 
+
+postgres=# CREATE USER jiradbuser PASSWORD 'jiradbpassword'; 
+
+postgres=# CREATE DATABASE jiradb WITH ENCODING 'UNICODE' LC_COLLATE 'C'  LC_CTYPE 'C' TEMPLATE template0; 
+
+postgres=# GRANT ALL PRIVILEGES ON DATABASE jiradb to jiradbuser; 
+
+\q 
+
+configure authentication methods 
+
+default authentication method for local connections in PostgreSQL is set to ‘ident’ that means it will get the operating system user name of the client by contacting the?ident?server on the client and check if it matches the requested database user name. You can read more on this on?official PostgreSQL site. 
+
+As we are not planing to have a ident server this needs to be updated. I use md5 method. You can consider other methods too depending on the situation. All these settings resting in?pg_hba.conf?file in data folder of the postgresql installation. 
+
+so need to do below: 
+
+$ sudo -u postgres -i -bash-4.2$ vim /var/lib/pgsql/9.6/data/pg_hba.conf 
+
+Update the line beginning with?host. It is towards the end of the file (line 82 in my case) the one starts with?host. 
+
+this line: 
+
+host??? all???????????? all???????????? 127.0.0.1/32??????????? ident 
+
+change it to: 
+
+host??? all???????????? all???????????? 127.0.0.1/32??????????? md5 
+
+then restart the service. 
+
+Download and Install Jira 
+
+$ cd /opt/ 
+
+$ sudo wget https://downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-7.11.1-x64.bin 
+
+$ sudo chmod +x atlassian-jira-software-7.11.1-x64.bin 
+
+ 
+
+$ sudo ./atlassian-jira-software-7.11.1-x64.bin 
+
+Unpacking JRE ...Starting Installer ...Jul 28, 2018 4:04:57 AM java.util.prefs.FileSystemPreferences$1 run 
+
+INFO: Created user preferences directory.Jul 28, 2018 4:04:57 AM java.util.prefs.FileSystemPreferences$2 run 
+
+INFO: Created system preferences directory in java.home. 
+
+This will install JIRA Software 7.11.1 on your computer. 
+
+OK [o, Enter], Cancel [c] 
+
+oChoose the appropriate installation or upgrade option.Please choose one of the following:Express Install (use default settings) [1], Custom Install (recommended for advanced users) [2, Enter], Upgrade an existing JIRA installation [3]2 
+
+Where should JIRA Software be installed?[/opt/atlassian/jira] 
+
+Default location for JIRA Software data[/var/atlassian/application-data/jira] 
+
+Configure which ports JIRA Software will use. 
+
+JIRA requires two TCP ports that are not being used by any other 
+
+applications on this machine. The HTTP port is where you will access JIRA 
+
+through your browser. The Control port is used to startup and shutdown JIRA.Use default ports (HTTP: 8080, Control: 8005) - Recommended [1, Enter], Set custom value for HTTP and Control ports [2] 
+
+ 
+
+JIRA can be run in the background.You may choose to run JIRA as a service, which means it will start 
+
+automatically whenever the computer restarts.Install JIRA as Service?Yes [y, Enter], No [n] 
+
+yDetails on where JIRA Software will be installed and the settings that will be used.Installation Directory: /opt/atlassian/jiraHome Directory: /var/atlassian/application-data/jira 
+
+HTTP Port: 8080 
+
+RMI Port: 8005Install as service: YesInstall [i, Enter], Exit [e] 
+
+iExtracting files ... 
+
+? atlassian-jira/secure/admin/views/filters/shared-filters.jsp 
+
+Please wait a few moments while JIRA Software is configured.Installation of JIRA Software 7.11.1 is completeStart JIRA Software 7.11.1 now?Yes [y, Enter], No [n] 
+
+y 
+
+Please wait a few moments while JIRA Software starts up.Launching JIRA Software ...Installation of JIRA Software 7.11.1 is completeYour installation of JIRA Software 7.11.1 is now ready and can be accessed 
+
+via your browser. 
+
+JIRA Software 7.11.1 can be accessed at http://localhost:8080Finishing installation ... 
+
+ 
+
+Now you are ready to start setting up your Jira server from the browser. 
+
+Set up Jira 
+
+Now open web browser and point to the address that you installed the server. 
+
+Select the language and PostgreSQL as external database. 
+
+
+
+If you pass this stage then it is safe to say you almost done the set-up. there are four more steps specifying the application server title, administrator details, license details and email notification set-up which are self explanatory and can be deferred or easily changed later. 
+
+ 
+
+ 
